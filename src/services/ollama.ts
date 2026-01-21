@@ -1,7 +1,9 @@
 import { Ollama } from 'ollama';
+import { getEnv } from '../lib/env';
 
-const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://localhost:11434';
-const DEFAULT_MODEL = process.env.OLLAMA_MODEL || 'llama3.1:8b';
+const env = getEnv();
+const OLLAMA_HOST = env.OLLAMA_HOST;
+const DEFAULT_MODEL = env.OLLAMA_MODEL;
 
 let client: Ollama | null = null;
 
