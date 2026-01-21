@@ -14,6 +14,8 @@ NC='\033[0m' # No Color
 REPO="ccoles146/triplanai-marketing"  # Update this with your repo
 INSTALL_DIR="${INSTALL_DIR:-$HOME/triplanai-marketing}"
 VERSION="${VERSION:-latest}"
+INSTALL_PARENT_DIR=$(dirname "$INSTALL_DIR")
+INSTALL_BASENAME=$(basename "$INSTALL_DIR")
 
 echo -e "${BLUE}================================${NC}"
 echo -e "${GREEN}TriPlan-AI Marketing Bot${NC}"
@@ -64,9 +66,16 @@ echo "Installation directory: $INSTALL_DIR"
 echo "Release version: $VERSION"
 echo ""
 
-# Create installation directory
-mkdir -p "$INSTALL_DIR"
-cd "$INSTALL_DIR"
+# Create parent directory and work there
+# We'll extract the tarball in the parent, which creates the 'triplanai-marketing' subdirectory
+mkdir -p "$INSTALL_PARENT_DIR"
+cd "$INSTALL_PARENT_DIR"
+
+# Remove old installation if it exists
+if [ -d "$INSTALL_DIR" ]; then
+    echo -e "${YELLOW}Removing existing installation at $INSTALL_DIR${NC}"
+    rm -rf "$INSTALL_DIR"
+fi
 
 echo -e "${BLUE}Step 1/4: Downloading release...${NC}"
 
@@ -108,13 +117,24 @@ fi
 echo ""
 echo -e "${BLUE}Step 3/4: Extracting archive...${NC}"
 
-# Extract to a temporary directory to avoid double nesting
-tar -xzf triplanai-marketing.tar.gz --strip-components=1
+# Extract the tarball (creates triplanai-marketing/ directory)
+tar -xzf triplanai-marketing.tar.gz
+
+# Verify extraction created the expected directory
+if [ ! -d "$INSTALL_DIR" ]; then
+    echo -e "${RED}Error: Extraction did not create $INSTALL_DIR${NC}"
+    echo "Contents of parent directory:"
+    ls -la
+    exit 1
+fi
 
 echo -e "${GREEN}✓ Extraction complete${NC}"
 
 echo ""
 echo -e "${BLUE}Step 4/4: Running installation...${NC}"
+
+# Change to the installation directory
+cd "$INSTALL_DIR"
 
 # Check if .env exists
 if [ ! -f ".env" ]; then
@@ -127,10 +147,11 @@ if [ ! -f ".env" ]; then
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         cp .env.example .env
         echo -e "${GREEN}.env file created. Please edit it with your credentials.${NC}"
-        echo "Then run: ./install.sh"
+        echo "Then run: cd $INSTALL_DIR && ./install.sh"
         exit 0
     else
         echo "Please create .env file before running ./install.sh"
+        echo "cd $INSTALL_DIR && cp .env.example .env && nano .env && ./install.sh"
         exit 1
     fi
 fi
@@ -153,6 +174,7 @@ echo ""
 echo -e "${GREEN}✓ Installation complete!${NC}"
 echo ""
 echo "Cleaning up downloaded files..."
+cd "$INSTALL_PARENT_DIR"
 rm -f triplanai-marketing.tar.gz triplanai-marketing.tar.gz.sha256
 
 echo -e "${GREEN}All done!${NC}"
