@@ -50,12 +50,13 @@ function buildSearchQuery(): string {
  */
 export async function scanTwitter(env: Env): Promise<SocialPost[]> {
   const posts: SocialPost[] = [];
-  const now = new Date();
 
   if (!env.TWITTER_BEARER_TOKEN) {
-    console.error('[twitter] Bearer token not configured');
+    console.log('[twitter] No credentials found - skipping');
     return posts;
   }
+
+  const now = new Date();
 
   const query = buildSearchQuery();
   const encodedQuery = encodeURIComponent(query);

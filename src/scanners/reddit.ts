@@ -30,6 +30,13 @@ interface RedditListingResponse {
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
 /**
+ * Clear the cached OAuth token (useful for testing)
+ */
+export function clearTokenCache(): void {
+  cachedToken = null;
+}
+
+/**
  * Get Reddit OAuth access token using client credentials
  */
 async function getAccessToken(env: Env): Promise<string> {
@@ -78,8 +85,15 @@ function shouldExclude(title: string, content: string): boolean {
  * Scan Reddit subreddits for triathlon-related posts
  */
 export async function scanReddit(env: Env): Promise<SocialPost[]> {
-  const accessToken = await getAccessToken(env);
   const posts: SocialPost[] = [];
+
+  // Check for required credentials
+  if (!env.REDDIT_CLIENT_ID || !env.REDDIT_CLIENT_SECRET || !env.REDDIT_USER_AGENT) {
+    console.log('[reddit] No credentials found - skipping');
+    return posts;
+  }
+
+  const accessToken = await getAccessToken(env);
   const now = new Date();
 
   for (const subreddit of SUBREDDITS) {

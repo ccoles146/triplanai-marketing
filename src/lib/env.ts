@@ -87,13 +87,10 @@ export function loadEnv(): Env {
 
 /**
  * Check if required environment variables are set
+ * Platform credentials are optional - the app will skip platforms without credentials
  */
 export function validateEnv(env: Env): { valid: boolean; missing: string[] } {
   const required = [
-    'REDDIT_CLIENT_ID',
-    'REDDIT_CLIENT_SECRET',
-    'REDDIT_USER_AGENT',
-    'TWITTER_BEARER_TOKEN',
     'TELEGRAM_BOT_TOKEN',
     'TELEGRAM_CHAT_ID',
   ];
