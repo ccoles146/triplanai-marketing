@@ -108,8 +108,8 @@ fi
 echo ""
 echo -e "${BLUE}Step 3/4: Extracting archive...${NC}"
 
-tar -xzf triplanai-marketing.tar.gz
-cd triplanai-marketing
+# Extract to a temporary directory to avoid double nesting
+tar -xzf triplanai-marketing.tar.gz --strip-components=1
 
 echo -e "${GREEN}✓ Extraction complete${NC}"
 
@@ -136,19 +136,23 @@ if [ ! -f ".env" ]; then
 fi
 
 # Run the installation script
-if [ "$SKIP_WEBHOOK" = true ]; then
-    ./install.sh --skip-webhook
-elif [ "$ENVIRONMENT" = "local" ]; then
-    ./install.sh --local
+if [ -f "./install.sh" ]; then
+    if [ "$SKIP_WEBHOOK" = true ]; then
+        ./install.sh --skip-webhook
+    elif [ "$ENVIRONMENT" = "local" ]; then
+        ./install.sh --local
+    else
+        ./install.sh --production
+    fi
 else
-    ./install.sh --production
+    echo -e "${RED}Error: install.sh not found in the extracted archive${NC}"
+    exit 1
 fi
 
 echo ""
 echo -e "${GREEN}✓ Installation complete!${NC}"
 echo ""
 echo "Cleaning up downloaded files..."
-cd ..
 rm -f triplanai-marketing.tar.gz triplanai-marketing.tar.gz.sha256
 
 echo -e "${GREEN}All done!${NC}"

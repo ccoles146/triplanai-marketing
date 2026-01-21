@@ -54,10 +54,10 @@ jobs:
           # Create tarball
           cd release
           tar -czf triplanai-marketing-linux-x64.tar.gz triplanai-marketing
-          cd ..
 
-          # Generate checksum
-          sha256sum release/triplanai-marketing-linux-x64.tar.gz > release/triplanai-marketing-linux-x64.tar.gz.sha256
+          # Generate checksum (without path prefix so it works with sha256sum -c)
+          sha256sum triplanai-marketing-linux-x64.tar.gz > triplanai-marketing-linux-x64.tar.gz.sha256
+          cd ..
 
       - name: Get version from tag
         id: get_version
