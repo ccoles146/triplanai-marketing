@@ -49,7 +49,7 @@ app.post('/webhook/telegram', async (req, res) => {
 // TEST ENDPOINTS
 // ============================================
 
-// Manual scan trigger
+// Manual scan trigger - all platforms
 app.post('/test/scan', async (_req, res) => {
   const env = getEnv();
   const { valid, missing } = validateEnv(env);
@@ -63,7 +63,41 @@ app.post('/test/scan', async (_req, res) => {
     console.error('[test/scan] Error:', error);
   });
 
-  res.json({ status: 'scan_started' });
+  res.json({ status: 'scan_started', platforms: ['reddit', 'twitter'] });
+});
+
+// Manual scan trigger - Reddit only
+app.post('/test/scan/reddit', async (_req, res) => {
+  const env = getEnv();
+  const { valid, missing } = validateEnv(env);
+  if (!valid) {
+    res.status(500).json({ error: 'Missing env vars', missing });
+    return;
+  }
+
+  // Run Reddit scan in background
+  runScan(['reddit']).catch((error) => {
+    console.error('[test/scan/reddit] Error:', error);
+  });
+
+  res.json({ status: 'scan_started', platform: 'reddit' });
+});
+
+// Manual scan trigger - Twitter only
+app.post('/test/scan/twitter', async (_req, res) => {
+  const env = getEnv();
+  const { valid, missing } = validateEnv(env);
+  if (!valid) {
+    res.status(500).json({ error: 'Missing env vars', missing });
+    return;
+  }
+
+  // Run Twitter scan in background
+  runScan(['twitter']).catch((error) => {
+    console.error('[test/scan/twitter] Error:', error);
+  });
+
+  res.json({ status: 'scan_started', platform: 'twitter' });
 });
 
 // Get top candidates without posting (dry run)
@@ -157,9 +191,9 @@ app.post('/webhook/delete', async (_req, res) => {
 const env = getEnv();
 const PORT = env.PORT;
 
-// Schedule scan every 4 hours
+// Schedule Reddit scan every 4 hours
 cron.schedule('0 */4 * * *', async () => {
-  console.log('[cron] Running scheduled scan');
+  console.log('[cron] Running scheduled Reddit scan');
   const { valid, missing } = validateEnv(env);
   if (!valid) {
     console.error(`[cron] Missing required env vars: ${missing.join(', ')}`);
@@ -167,9 +201,25 @@ cron.schedule('0 */4 * * *', async () => {
   }
 
   try {
-    await runScan();
+    await runScan(['reddit']);
   } catch (error) {
-    console.error('[cron] Scan failed:', error);
+    console.error('[cron] Reddit scan failed:', error);
+  }
+});
+
+// Schedule Twitter scan once daily at 8 AM (optimal engagement time)
+cron.schedule('0 8 * * *', async () => {
+  console.log('[cron] Running scheduled Twitter scan');
+  const { valid, missing } = validateEnv(env);
+  if (!valid) {
+    console.error(`[cron] Missing required env vars: ${missing.join(', ')}`);
+    return;
+  }
+
+  try {
+    await runScan(['twitter']);
+  } catch (error) {
+    console.error('[cron] Twitter scan failed:', error);
   }
 });
 
@@ -192,9 +242,13 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`[server] triplanai-marketing running on port ${PORT}`);
-  console.log('[server] Cron schedule: 0 */4 * * * (every 4 hours)');
+  console.log(`[server] Listening on 0.0.0.0:${PORT} (all network interfaces)`);
+  console.log('[server] Cron schedules:');
+  console.log('[server]   - Reddit: 0 */4 * * * (every 4 hours)');
+  console.log('[server]   - Twitter: 0 8 * * * (daily at 8 AM)');
+  console.log('[server]   - Cleanup: 0 * * * * (hourly)');
 
   // Validate env on startup
   const { valid, missing } = validateEnv(env);

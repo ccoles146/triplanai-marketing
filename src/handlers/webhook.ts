@@ -107,15 +107,15 @@ async function handleApprove(
   crossPost: boolean
 ): Promise<void> {
   const env = getEnv();
-  const { postId, platform, replyText } = pending;
+  const { postId, platform, replyText, originalPostUrl } = pending;
   const externalId = postId.replace(`${platform}:`, '');
 
-  let result: { success: boolean; error?: string };
+  let result: { success: boolean; error?: string; url?: string };
 
   // Post to the original platform
   switch (platform) {
     case 'reddit':
-      result = await postRedditReply(env, externalId, replyText);
+      result = await postRedditReply(env, externalId, replyText, originalPostUrl);
       break;
 
     case 'twitter':
@@ -132,6 +132,17 @@ async function handleApprove(
   }
 
   if (!result.success) {
+    // Check if this is a manual posting scenario (URL provided)
+    if (result.url) {
+      await updateMessageStatus(
+        messageId,
+        'manual',
+        `Manual posting required\n\n📋 Copy this reply:\n"${replyText}"\n\n🔗 Open post: ${result.url}\n\nMark as done when posted!`,
+        { action: 'approve', postId, platform }
+      );
+      // Don't delete pending reply - user might need to reference it
+      return;
+    }
     await updateMessageStatus(messageId, 'failed', result.error);
     return;
   }

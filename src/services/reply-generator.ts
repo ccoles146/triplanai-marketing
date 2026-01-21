@@ -11,13 +11,16 @@ Guidelines:
 5. Reference the specific question or topic from the original post
 6. Include a relevant training tip when appropriate
 7. Use appropriate tone for the platform
+8. Output plain text only - NO HTML tags, NO comments, NO markdown formatting
 
 DO NOT:
 - Mention that you're an AI or bot
 - Include links unless specifically asked
 - Use excessive hashtags
 - Be generic - always personalize based on the post content
-- Start replies with "Great question!" or similar clichés`;
+- Start replies with "Great question!" or similar clichés
+- Use HTML tags, HTML comments (<!-- -->), or any markup language
+- Use markdown formatting like ** or __`;
 
 const PLATFORM_INSTRUCTIONS: Record<SocialPlatform, string> = {
   reddit: `Format for Reddit:

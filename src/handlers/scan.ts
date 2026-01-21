@@ -20,8 +20,9 @@ import {
 
 /**
  * Main scan handler - orchestrates scanning all platforms
+ * @param platformFilter - Optional array of platforms to scan. If not provided, scans all platforms.
  */
-export async function runScan(): Promise<ScanResult[]> {
+export async function runScan(platformFilter?: SocialPlatform[]): Promise<ScanResult[]> {
   const env = getEnv();
   console.log('[scan] Starting scheduled scan');
 
@@ -29,7 +30,7 @@ export async function runScan(): Promise<ScanResult[]> {
   const allCandidates: SocialPost[] = [];
 
   // Scan each platform and collect candidates
-  const platforms: SocialPlatform[] = ['reddit', 'twitter'];
+  const platforms: SocialPlatform[] = platformFilter || ['reddit', 'twitter'];
 
   for (const platform of platforms) {
     const { result, candidates } = await scanPlatform(platform);
@@ -37,13 +38,18 @@ export async function runScan(): Promise<ScanResult[]> {
     allCandidates.push(...candidates);
   }
 
-  // Generate replies for top candidates (max 3 total per scan)
+  // Generate replies for top candidates with platform-specific limits
   if (allCandidates.length > 0) {
-    const topCandidates = allCandidates
-      .sort((a, b) => b.relevanceScore - a.relevanceScore)
-      .slice(0, 3);
+    // Sort all candidates by relevance
+    const sortedCandidates = allCandidates.sort((a, b) => b.relevanceScore - a.relevanceScore);
 
-    console.log(`[scan] Generating replies for ${topCandidates.length} candidates`);
+    // Apply platform-specific limits: Twitter 1-2/day, Reddit 3-5/day
+    const twitterCandidates = sortedCandidates.filter(c => c.platform === 'twitter').slice(0, 2);
+    const redditCandidates = sortedCandidates.filter(c => c.platform === 'reddit').slice(0, 3);
+
+    const topCandidates = [...twitterCandidates, ...redditCandidates];
+
+    console.log(`[scan] Generating replies for ${topCandidates.length} candidates (Twitter: ${twitterCandidates.length}, Reddit: ${redditCandidates.length})`);
 
     const replies = await generateReplies(topCandidates);
 

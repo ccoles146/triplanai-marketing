@@ -116,7 +116,7 @@ export function createMockFetchResponse<T>(data: T, ok = true, status = 200): Re
     body: null,
     bodyUsed: false,
     arrayBuffer: async () => new ArrayBuffer(0),
-    blob: async () => new Blob(),
+    blob: async () => new Blob([]),
     formData: async () => new FormData(),
     json: async () => data,
     text: async () => JSON.stringify(data),

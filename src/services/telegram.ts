@@ -32,6 +32,25 @@ function truncate(text: string, maxLength: number): string {
 }
 
 /**
+ * Sanitize text for Telegram HTML parsing
+ * - Removes HTML comments (<!-- -->)
+ * - Removes ALL HTML tags (Telegram will format with its own tags)
+ * - Escapes special characters
+ */
+function sanitizeForTelegram(text: string): string {
+  return text
+    // Remove HTML comments
+    .replace(/<!--[\s\S]*?-->/g, '')
+    // Remove ALL HTML tags (including malformed ones)
+    .replace(/<[^>]*>/g, '')
+    // Escape HTML special characters
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .trim();
+}
+
+/**
  * Format age in human-readable form
  */
 function formatAge(date: Date): string {
@@ -120,11 +139,16 @@ export async function sendApprovalRequest(
   const post = reply.originalPost;
   const emoji = PLATFORM_EMOJI[post.platform];
 
+  // Sanitize the reply text to remove HTML comments and unsupported tags
+  const sanitizedReply = sanitizeForTelegram(reply.replyText);
+  const sanitizedContent = sanitizeForTelegram(post.content);
+  const sanitizedTitle = post.title ? sanitizeForTelegram(post.title) : '';
+
   // Build message text (using HTML for more reliable formatting)
   const message = `${emoji} <b>${post.platform.toUpperCase()} Opportunity</b> (Score: ${post.relevanceScore}/100)
 
 <b>@${post.authorUsername}</b>${post.subreddit ? ` in r/${post.subreddit}` : ''}:
-${post.title ? `<i>${truncate(post.title, 100)}</i>\n` : ''}"${truncate(post.content, 300)}"
+${sanitizedTitle ? `<i>${truncate(sanitizedTitle, 100)}</i>\n` : ''}"${truncate(sanitizedContent, 300)}"
 
 ⏱️ Posted: ${formatAge(post.createdAt)}
 ❤️ Engagement: ${post.engagementScore}
@@ -133,7 +157,7 @@ ${post.title ? `<i>${truncate(post.title, 100)}</i>\n` : ''}"${truncate(post.con
 ━━━━━━━━━━━━━━━
 
 ✏️ <b>Draft Reply:</b>
-"${reply.replyText}"
+"${sanitizedReply}"
 
 ━━━━━━━━━━━━━━━
 
@@ -199,10 +223,14 @@ export async function sendInstagramOpportunity(
   const env = getEnv();
   const post = reply.originalPost;
 
+  // Sanitize text content
+  const sanitizedReply = sanitizeForTelegram(reply.replyText);
+  const sanitizedContent = sanitizeForTelegram(post.content);
+
   const message = `📸 <b>Instagram Opportunity</b> (Score: ${post.relevanceScore}/100)
 
 <b>@${post.authorUsername}</b>:
-"${truncate(post.content, 300)}"
+"${truncate(sanitizedContent, 300)}"
 
 ⏱️ Posted: ${formatAge(post.createdAt)}
 ❤️ Engagement: ${post.engagementScore}
@@ -212,7 +240,7 @@ export async function sendInstagramOpportunity(
 ━━━━━━━━━━━━━━━
 
 ✏️ <b>Suggested Reply:</b>
-"${reply.replyText}"
+"${sanitizedReply}"
 
 ━━━━━━━━━━━━━━━
 
@@ -263,8 +291,9 @@ export async function sendInstagramOpportunity(
  */
 export async function updateMessageStatus(
   messageId: string,
-  status: 'approved' | 'declined' | 'posted' | 'failed' | 'done',
-  details?: string
+  status: 'approved' | 'declined' | 'posted' | 'failed' | 'done' | 'manual',
+  details?: string,
+  callbackData?: TelegramCallbackData
 ): Promise<void> {
   const env = getEnv();
   const statusEmoji: Record<string, string> = {
@@ -273,16 +302,47 @@ export async function updateMessageStatus(
     posted: '🚀',
     failed: '⚠️',
     done: '✅',
+    manual: '📝',
   };
 
-  // Remove inline keyboard
+  // For manual status, keep a "Mark as Done" button
+  let replyMarkup: { inline_keyboard: Array<Array<{ text: string; callback_data: string }>> } | null = null;
+
+  if (status === 'manual' && callbackData) {
+    replyMarkup = {
+      inline_keyboard: [
+        [
+          {
+            text: '✅ Mark as Done',
+            callback_data: encodeCallbackData({
+              action: 'mark_done',
+              postId: callbackData.postId,
+              platform: callbackData.platform,
+            }),
+          },
+          {
+            text: '❌ Skip',
+            callback_data: encodeCallbackData({
+              action: 'decline',
+              postId: callbackData.postId,
+              platform: callbackData.platform,
+            }),
+          },
+        ],
+      ],
+    };
+  } else {
+    // Remove inline keyboard for other statuses
+    replyMarkup = { inline_keyboard: [] };
+  }
+
   await fetch(`${TELEGRAM_API}${env.TELEGRAM_BOT_TOKEN}/editMessageReplyMarkup`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       chat_id: env.TELEGRAM_CHAT_ID,
       message_id: parseInt(messageId),
-      reply_markup: { inline_keyboard: [] },
+      reply_markup: replyMarkup,
     }),
   });
 

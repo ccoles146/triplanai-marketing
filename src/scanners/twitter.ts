@@ -63,7 +63,7 @@ export async function scanTwitter(env: Env): Promise<SocialPost[]> {
 
   try {
     const response = await fetch(
-      `https://api.twitter.com/2/tweets/search/recent?query=${encodedQuery}&max_results=25&tweet.fields=created_at,public_metrics,author_id&expansions=author_id&user.fields=username`,
+      `https://api.twitter.com/2/tweets/search/recent?query=${encodedQuery}&max_results=20&tweet.fields=created_at,public_metrics,author_id&expansions=author_id&user.fields=username`,
       {
         headers: {
           'Authorization': `Bearer ${env.TWITTER_BEARER_TOKEN}`,

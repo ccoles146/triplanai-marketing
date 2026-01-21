@@ -37,6 +37,9 @@ export interface Env {
   TELEGRAM_CHAT_ID: string;
   TELEGRAM_WEBHOOK_SECRET: string;
 
+  // Webhook configuration
+  WEBHOOK_URL: string;
+
   // Media services
   PEXELS_API_KEY: string;
 
@@ -77,6 +80,8 @@ export function loadEnv(): Env {
     TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || '',
     TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID || '',
     TELEGRAM_WEBHOOK_SECRET: process.env.TELEGRAM_WEBHOOK_SECRET || '',
+
+    WEBHOOK_URL: process.env.WEBHOOK_URL || '',
 
     PEXELS_API_KEY: process.env.PEXELS_API_KEY || '',
     CREATOMATE_API_KEY: process.env.CREATOMATE_API_KEY,

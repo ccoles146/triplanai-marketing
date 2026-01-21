@@ -81,14 +81,13 @@ export const TRIATHLON_KEYWORDS = [
  */
 export const TWITTER_HASHTAGS = [
   '#triathlon',
-  '#ironman',
+  '#irondistance',
   '#tri',
   '#swimbikerun',
   '#triathlontraining',
   '#703',
   '#triathlonlife',
   '#triathlete',
-  '#endurance',
 ] as const;
 
 /**

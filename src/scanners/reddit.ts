@@ -8,6 +8,18 @@ interface RedditOAuthResponse {
   expires_in: number;
 }
 
+interface RSSItem {
+  id: string;
+  title: string;
+  content: string;
+  author: string;
+  subreddit: string;
+  permalink: string;
+  created: Date;
+  score?: number;
+  numComments?: number;
+}
+
 interface RedditListingResponse {
   data: {
     children: Array<{
@@ -82,17 +94,160 @@ function shouldExclude(title: string, content: string): boolean {
 }
 
 /**
+ * Parse Reddit RSS feed XML
+ */
+function parseRedditRSS(xmlText: string, subreddit: string): RSSItem[] {
+  const items: RSSItem[] = [];
+
+  // Simple XML parsing using regex (for basic RSS feeds)
+  const entryPattern = /<entry>([\s\S]*?)<\/entry>/g;
+  const entries = xmlText.matchAll(entryPattern);
+
+  for (const entryMatch of entries) {
+    const entry = entryMatch[1];
+
+    // Extract fields
+    const id = entry.match(/<id>.*\/comments\/([^/]+)/)?.[1];
+    const title = entry.match(/<title>(.*?)<\/title>/)?.[1];
+    const author = entry.match(/<name>(.*?)<\/name>/)?.[1];
+    const updated = entry.match(/<updated>(.*?)<\/updated>/)?.[1];
+    const link = entry.match(/<link href="([^"]+)"/)?.[1];
+    const contentMatch = entry.match(/<content[^>]*>([\s\S]*?)<\/content>/)?.[1];
+
+    if (!id || !title || !author) continue;
+
+    // Extract text content and remove HTML tags
+    let content = '';
+    if (contentMatch) {
+      // Remove CDATA wrapper
+      const cdataContent = contentMatch.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/, '$1');
+      // Extract text from HTML (basic approach)
+      content = cdataContent
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      // Try to extract just the post text (before comments section)
+      const submittedMatch = content.match(/submitted by.*?to r\/\w+\s+(.*?)(?:\[link\]|\[comments\]|$)/s);
+      if (submittedMatch) {
+        content = submittedMatch[1].trim();
+      }
+    }
+
+    items.push({
+      id: id,
+      title: decodeHTML(title),
+      content: content,
+      author: author.replace(/^\/u\//, ''),
+      subreddit: subreddit,
+      permalink: link || '',
+      created: updated ? new Date(updated) : new Date(),
+    });
+  }
+
+  return items;
+}
+
+/**
+ * Decode HTML entities
+ */
+function decodeHTML(text: string): string {
+  return text
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ');
+}
+
+/**
+ * Scan Reddit via RSS feeds (no authentication required)
+ */
+async function scanRedditViaRSS(subreddit: string): Promise<SocialPost[]> {
+  const posts: SocialPost[] = [];
+  const now = new Date();
+
+  try {
+    const rssUrl = `https://www.reddit.com/r/${subreddit}/new.rss?limit=25`;
+    const response = await fetch(rssUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; TriPlanAI-Marketing/2.0)',
+      },
+    });
+
+    if (!response.ok) {
+      console.error(`[reddit-rss] Failed to fetch r/${subreddit}: ${response.status}`);
+      return posts;
+    }
+
+    const xmlText = await response.text();
+    const items = parseRedditRSS(xmlText, subreddit);
+
+    for (const item of items) {
+      // Skip excluded content
+      if (shouldExclude(item.title, item.content)) {
+        continue;
+      }
+
+      // Skip deleted users
+      if (item.author === '[deleted]') {
+        continue;
+      }
+
+      posts.push({
+        id: `reddit:${item.id}`,
+        platform: 'reddit',
+        externalId: item.id,
+        url: item.permalink,
+        authorUsername: item.author,
+        content: item.content,
+        title: item.title,
+        subreddit: item.subreddit,
+        engagementScore: 0, // RSS feeds don't include score/comments
+        createdAt: item.created,
+        scannedAt: now,
+        relevanceScore: 0,
+      });
+    }
+
+    console.log(`[reddit-rss] Scanned r/${subreddit}: ${items.length} posts`);
+  } catch (error) {
+    console.error(`[reddit-rss] Error scanning r/${subreddit}:`, error);
+  }
+
+  return posts;
+}
+
+/**
  * Scan Reddit subreddits for triathlon-related posts
+ * Uses API if credentials available, otherwise falls back to RSS feeds
  */
 export async function scanReddit(env: Env): Promise<SocialPost[]> {
   const posts: SocialPost[] = [];
 
-  // Check for required credentials
-  if (!env.REDDIT_CLIENT_ID || !env.REDDIT_CLIENT_SECRET || !env.REDDIT_USER_AGENT) {
-    console.log('[reddit] No credentials found - skipping');
+  // Check if we should use API or RSS
+  const hasAPICredentials = env.REDDIT_CLIENT_ID && env.REDDIT_CLIENT_SECRET && env.REDDIT_USER_AGENT;
+
+  if (!hasAPICredentials) {
+    console.log('[reddit] No API credentials - using RSS feeds');
+
+    // Scan via RSS (no authentication required)
+    for (const subreddit of SUBREDDITS) {
+      const rssPosts = await scanRedditViaRSS(subreddit);
+      posts.push(...rssPosts);
+    }
+
     return posts;
   }
 
+  // Use API method
+  console.log('[reddit] Using API method');
   const accessToken = await getAccessToken(env);
   const now = new Date();
 
@@ -155,16 +310,48 @@ export async function scanReddit(env: Env): Promise<SocialPost[]> {
 }
 
 /**
+ * Generate a pre-filled Reddit reply URL
+ * Opens Reddit comment page where user can paste and submit the reply
+ */
+export function generateRedditReplyUrl(postId: string, postUrl: string): string {
+  // Reddit doesn't support pre-filled text in URLs, so we just return the post URL
+  // User will need to copy the reply text and paste it manually
+  return postUrl;
+}
+
+/**
  * Post a reply to a Reddit post
- * Requires user authentication (username/password OAuth flow)
+ * Supports both API posting (if credentials available) and URL generation for manual posting
  */
 export async function postRedditReply(
   env: Env,
   postId: string,
-  replyText: string
-): Promise<{ success: boolean; error?: string }> {
-  // Reddit requires password grant for posting on behalf of a user
+  replyText: string,
+  postUrl?: string
+): Promise<{ success: boolean; error?: string; url?: string }> {
+  // Check if we have API credentials for automatic posting
+  if (!env.REDDIT_CLIENT_ID || !env.REDDIT_CLIENT_SECRET) {
+    // No API credentials - generate URL for manual posting if username is available
+    if (env.REDDIT_USERNAME && postUrl) {
+      return {
+        success: false,
+        error: 'Manual posting required',
+        url: generateRedditReplyUrl(postId, postUrl),
+      };
+    }
+    return { success: false, error: 'Reddit credentials not configured' };
+  }
+
+  // Check if we have user credentials for posting
   if (!env.REDDIT_USERNAME || !env.REDDIT_PASSWORD) {
+    // API creds exist but no user creds - generate URL for manual posting
+    if (postUrl) {
+      return {
+        success: false,
+        error: 'Manual posting required',
+        url: generateRedditReplyUrl(postId, postUrl),
+      };
+    }
     return { success: false, error: 'Reddit username/password not configured' };
   }
 

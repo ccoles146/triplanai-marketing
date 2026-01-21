@@ -8,24 +8,29 @@ Self-hosted Node.js application that automates triathlon-related social media ma
 - **AI-Powered Replies**: Uses local Ollama LLM to generate contextual, helpful responses
 - **Human-in-the-Loop**: All replies require approval via Telegram before posting
 - **Smart Ranking**: Prioritizes questions and high-engagement posts
+- **Cost-Optimized**: Twitter scanning limited to 1×/day ($0.10/day, $3/month)
+- **Platform-Specific Scheduling**: Reddit scans every 4 hours (free), Twitter once daily
 - **Rate Limiting**: Built-in safeguards to avoid spam and respect platform limits
-- **Scheduled Execution**: Systemd timer runs automatically at scheduled times
+- **Flexible Deployment**: Run as continuous server with cron, or as systemd timer
 
 ## Prerequisites
 
+### Required
 - Node.js 20+
-- Ollama running locally with `llama3.1:8b` model
+- Ollama with a compatible model (e.g., `llama3.1:8b`, `llama2:7b`)
   ```bash
   # Install Ollama (if not already installed)
   curl -fsSL https://ollama.com/install.sh | sh
 
-  # Pull the model
+  # Pull a model
   ollama pull llama3.1:8b
   ```
-- Reddit API credentials (OAuth app)
-- Twitter API credentials (Bearer token)
 - Telegram Bot (for approval workflow)
-- Optional: Pexels API key (for images)
+
+### Optional (per platform)
+- **Reddit**: API credentials (OAuth app) - If not provided, uses public RSS feeds
+- **Twitter**: API credentials (Bearer token) - Required for Twitter scanning
+- **Pexels**: API key for image suggestions
 
 ## Installation
 
@@ -46,12 +51,23 @@ cp .env.example .env
 nano .env  # or your preferred editor
 ```
 
-Required environment variables:
-- `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `REDDIT_USERNAME`, `REDDIT_PASSWORD`, `REDDIT_USER_AGENT`
-- `TWITTER_BEARER_TOKEN`, `TWITTER_API_KEY`, `TWITTER_API_SECRET`, `TWITTER_ACCESS_TOKEN`, `TWITTER_ACCESS_SECRET`
-- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
+**Required:**
+- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` - For human approval workflow
 - `OLLAMA_HOST` (default: `http://localhost:11434`)
 - `OLLAMA_MODEL` (default: `llama3.1:8b`)
+
+**Optional (Reddit):**
+- `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `REDDIT_USER_AGENT` - For API access (provides engagement metrics)
+- `REDDIT_USERNAME`, `REDDIT_PASSWORD` - For automated posting (otherwise uses manual URL method)
+- If Reddit credentials are omitted, the bot will use public RSS feeds (no authentication required)
+
+**Optional (Twitter):**
+- `TWITTER_BEARER_TOKEN` - For scanning (required if you want Twitter scanning)
+- `TWITTER_API_KEY`, `TWITTER_API_SECRET`, `TWITTER_ACCESS_TOKEN`, `TWITTER_ACCESS_SECRET` - For posting
+
+**Optional (Other):**
+- `PEXELS_API_KEY` - For image suggestions
+- `FACEBOOK_PAGE_ID`, `FACEBOOK_PAGE_ACCESS_TOKEN` - For cross-posting to Facebook
 
 ### 3. Build the Project
 
@@ -59,21 +75,53 @@ Required environment variables:
 npm run build
 ```
 
-### 4. Install Systemd Timer (Automated Scheduling)
+### 4. Choose Deployment Mode
 
-The bot includes an installation script that sets up a systemd timer to run automatically at 8am, 2pm, and 8pm daily:
+#### Option A: Systemd Service (RECOMMENDED for production with webhooks)
+
+Run as a continuous server with built-in cron scheduling and webhook support:
+
+```bash
+./install-systemd-service.sh
+```
+
+This will:
+- Create a systemd service that runs continuously
+- Enable automatic restart on failure
+- Set up built-in scheduling (Reddit every 4h, Twitter daily at 8 AM)
+- Enable Telegram webhook support (buttons work!)
+- Provide HTTP API endpoints for testing
+
+**After installation, set up the webhook:**
+
+```bash
+./scripts/setup-webhook.sh production
+```
+
+**Benefits:**
+- ✅ Telegram buttons work (approve/decline)
+- ✅ HTTP API for manual triggers
+- ✅ Real-time monitoring
+- ✅ Auto-restart on crashes
+- ✅ Optimized Twitter costs ($0.10/day)
+
+#### Option B: Systemd Timer (One-shot executions)
+
+Use systemd timer for periodic one-shot executions:
 
 ```bash
 ./install-systemd-timer.sh
 ```
 
-This will:
-- Create systemd service and timer files
-- Set up proper permissions
-- Enable and start the timer
-- Configure the bot to run at scheduled times
+Runs at 8 AM, 2 PM, 8 PM daily as separate executions.
 
-**Note:** The script requires `sudo` access to create systemd files, but the service itself runs as your user.
+**Limitations:**
+- ❌ No webhook support (buttons won't work)
+- ❌ No HTTP API
+- ✅ Lower resource usage
+- ✅ Simpler architecture
+
+**Note:** The scripts require `sudo` access to create systemd files, but the service runs as your user.
 
 ## Usage
 
@@ -91,7 +139,89 @@ Or run in development mode with hot reload:
 npm run dev
 ```
 
-### Systemd Timer Management
+### Manual Trigger via API
+
+The bot includes several HTTP endpoints for manual triggering and testing:
+
+#### 1. Trigger Platform-Specific Scans
+
+```bash
+# Scan all platforms (Reddit + Twitter)
+curl -X POST http://localhost:3000/test/scan
+
+# Scan Reddit only (free - no API costs)
+curl -X POST http://localhost:3000/test/scan/reddit
+
+# Scan Twitter only (costs $0.10)
+curl -X POST http://localhost:3000/test/scan/twitter
+```
+
+#### 2. Preview Top Candidates (Dry Run)
+View the top candidates without generating replies or posting:
+
+```bash
+curl http://localhost:3000/test/candidates
+```
+
+#### 3. List Pending Replies
+See what replies are waiting for approval:
+
+```bash
+curl http://localhost:3000/test/pending
+```
+
+#### 4. Test Telegram Connection
+Send a test message to your Telegram chat:
+
+```bash
+curl -X POST http://localhost:3000/test/telegram
+```
+
+#### 5. Webhook Management
+
+```bash
+# Set webhook (required for Telegram buttons to work)
+curl -X POST http://localhost:3000/webhook/set \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://your-domain.com/webhook/telegram"}'
+
+# Check webhook status
+curl http://localhost:3000/webhook/info
+
+# Delete webhook
+curl -X POST http://localhost:3000/webhook/delete
+```
+
+**Note:** Replace `localhost:3000` with your server's address and port if different.
+
+### Systemd Service Management (Continuous Server)
+
+After installing the systemd service, use these commands:
+
+```bash
+# Check service status
+sudo systemctl status triplanai-marketing.service
+
+# View live logs
+sudo journalctl -u triplanai-marketing.service -f
+
+# View recent logs
+sudo journalctl -u triplanai-marketing.service -n 100
+
+# Restart service (after code updates)
+sudo systemctl restart triplanai-marketing.service
+
+# Stop service
+sudo systemctl stop triplanai-marketing.service
+
+# Disable automatic startup
+sudo systemctl disable triplanai-marketing.service
+
+# Uninstall service
+./uninstall-systemd-service.sh
+```
+
+### Systemd Timer Management (One-shot Executions)
 
 After installing the systemd timer, use these commands:
 
@@ -102,18 +232,29 @@ sudo systemctl status triplanai-marketing.timer
 # View upcoming scheduled runs
 systemctl list-timers triplanai-marketing.timer
 
-# Run the bot immediately (manual trigger)
+# Run the bot immediately (manual trigger - doesn't affect scheduled runs)
 sudo systemctl start triplanai-marketing.service
 
-# View logs
+# View logs (live tail)
 sudo journalctl -u triplanai-marketing.service -f
+
+# View recent logs
+sudo journalctl -u triplanai-marketing.service -n 100
 
 # Stop the timer
 sudo systemctl stop triplanai-marketing.timer
 
 # Disable automatic runs
 sudo systemctl disable triplanai-marketing.timer
+
+# Uninstall timer
+./uninstall-systemd-timer.sh
 ```
+
+**Manual Trigger Options:**
+1. **Via systemd**: `sudo systemctl start triplanai-marketing.service` - Runs a one-time scan
+2. **Via API** (if server is running): `curl -X POST http://localhost:3000/test/scan`
+3. **Direct execution**: `npm run start` in the project directory
 
 ### Uninstallation
 
@@ -250,6 +391,13 @@ rm data/marketing.db
 
 ### Currently Supported
 - **Reddit**: Full support for scanning and posting replies
+  - **API Mode**: When Reddit API credentials are provided (CLIENT_ID, CLIENT_SECRET, USER_AGENT)
+    - Full access to post metadata (scores, comments, engagement)
+    - Can post replies via API (if USERNAME and PASSWORD also provided)
+  - **RSS Mode**: When Reddit API credentials are missing
+    - Scans subreddits via public RSS feeds (no authentication required)
+    - No engagement metrics available (scores/comments)
+    - Manual posting via URL generation
 - **Twitter**: Full support for scanning and posting replies
 
 ### Not Yet Implemented

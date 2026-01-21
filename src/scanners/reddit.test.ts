@@ -29,6 +29,7 @@ describe('Reddit Scanner', () => {
     TELEGRAM_BOT_TOKEN: '',
     TELEGRAM_CHAT_ID: '',
     TELEGRAM_WEBHOOK_SECRET: '',
+    WEBHOOK_URL: '',
     PEXELS_API_KEY: '',
   };
 
