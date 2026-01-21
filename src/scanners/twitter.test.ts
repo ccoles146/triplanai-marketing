@@ -211,7 +211,7 @@ describe('Twitter Scanner', () => {
 
       const searchCall = mockFetch.mock.calls[0];
       expect(searchCall[0]).toContain('api.twitter.com/2/tweets/search/recent');
-      expect(searchCall[0]).toContain('max_results=25');
+      expect(searchCall[0]).toContain('max_results=20');
       expect(searchCall[0]).toContain('tweet.fields=created_at,public_metrics,author_id');
       expect(searchCall[0]).toContain('expansions=author_id');
     });
