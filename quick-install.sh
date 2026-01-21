@@ -106,10 +106,17 @@ echo -e "${GREEN}✓ Download complete${NC}"
 echo ""
 echo -e "${BLUE}Step 2/4: Verifying checksum...${NC}"
 
-if sha256sum -c triplanai-marketing.tar.gz.sha256; then
+# The checksum file contains the original filename, but we renamed it
+# Need to adjust the checksum file or use a different approach
+EXPECTED_HASH=$(cut -d' ' -f1 triplanai-marketing.tar.gz.sha256)
+ACTUAL_HASH=$(sha256sum triplanai-marketing.tar.gz | cut -d' ' -f1)
+
+if [ "$EXPECTED_HASH" = "$ACTUAL_HASH" ]; then
     echo -e "${GREEN}✓ Checksum verified${NC}"
 else
     echo -e "${RED}✗ Checksum verification failed!${NC}"
+    echo "Expected: $EXPECTED_HASH"
+    echo "Actual:   $ACTUAL_HASH"
     echo "The downloaded file may be corrupted or tampered with."
     exit 1
 fi

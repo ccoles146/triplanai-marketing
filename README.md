@@ -59,7 +59,7 @@ No build tools required! Download and install the latest pre-built release:
 
 ```bash
 # Download and run the quick install script
-curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/triplanai-marketing/master/quick-install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ccoles146/triplanai-marketing/master/quick-install.sh | bash
 
 # Or download manually
 VERSION=v1.0.0  # Replace with desired version or use "latest"
