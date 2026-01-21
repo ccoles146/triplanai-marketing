@@ -15,8 +15,9 @@ Self-hosted Node.js application that automates triathlon-related social media ma
 
 ## Prerequisites
 
-### Required
-- Node.js 20+
+### Required (All Installation Methods)
+- **For pre-built releases**: Node.js 20+ (runtime only)
+- **For building from source**: Node.js 20+ and build tools
 - Ollama with a compatible model (e.g., `llama3.1:8b`, `llama2:7b`)
   ```bash
   # Install Ollama (if not already installed)
@@ -27,22 +28,71 @@ Self-hosted Node.js application that automates triathlon-related social media ma
   ```
 - Telegram Bot (for approval workflow)
 
-### Optional (per platform)
+### Build Tools (Only Required for Building from Source)
+
+If using pre-built releases, you can skip this section.
+
+```bash
+# Debian/Ubuntu
+sudo apt-get update && sudo apt-get install -y build-essential python3
+
+# RHEL/CentOS/Fedora
+sudo yum groupinstall "Development Tools"
+sudo yum install python3
+
+# macOS (via Homebrew)
+xcode-select --install
+```
+
+### Optional API Credentials (per platform)
 - **Reddit**: API credentials (OAuth app) - If not provided, uses public RSS feeds
 - **Twitter**: API credentials (Bearer token) - Required for Twitter scanning
 - **Pexels**: API key for image suggestions
 
 ## Installation
 
-### 1. Clone and Install Dependencies
+Choose one of the following installation methods:
+
+### Option A: Quick Install from Pre-built Release (Recommended)
+
+No build tools required! Download and install the latest pre-built release:
+
+```bash
+# Download and run the quick install script
+curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/triplanai-marketing/master/quick-install.sh | bash
+
+# Or download manually
+VERSION=v1.0.0  # Replace with desired version or use "latest"
+curl -L https://github.com/YOUR_USERNAME/triplanai-marketing/releases/download/$VERSION/triplanai-marketing-linux-x64.tar.gz -o triplanai-marketing.tar.gz
+tar -xzf triplanai-marketing.tar.gz
+cd triplanai-marketing
+
+# Configure and install
+cp .env.example .env
+nano .env  # Add your credentials
+./install.sh
+```
+
+**Benefits:**
+- No build tools needed (no `build-essential`, `python3`, etc.)
+- Faster installation
+- Pre-compiled native modules
+- Consistent builds
+
+### Option B: Build from Source
+
+If you want to build from source or contribute to development:
+
+#### 1. Clone and Install Dependencies
 
 ```bash
 git clone <repository-url>
 cd triplanai-marketing
-npm install
+npm install  # Requires build-essential and python3
+npm run build
 ```
 
-### 2. Configure Environment Variables
+#### 2. Configure Environment Variables
 
 Copy the example environment file and configure your credentials:
 
@@ -382,6 +432,52 @@ The SQLite database is stored in `data/marketing.db`. To reset:
 rm data/marketing.db
 # Database will be recreated on next run
 ```
+
+## Development & Contributing
+
+### Running in Development Mode
+
+```bash
+npm run dev       # Start with hot reload
+npm test          # Run tests
+npm run typecheck # Type checking
+```
+
+### Creating a Release
+
+To create a new release with pre-built artifacts:
+
+1. **Update version in package.json**
+
+2. **Commit and create a git tag:**
+   ```bash
+   git add package.json
+   git commit -m "Bump version to v1.0.0"
+   git tag v1.0.0
+   git push origin master --tags
+   ```
+
+3. **GitHub Actions will automatically:**
+   - Build the TypeScript code
+   - Run tests
+   - Compile native modules for linux-x64
+   - Create a GitHub release with `triplanai-marketing-linux-x64.tar.gz`
+   - Generate SHA256 checksums for verification
+
+4. **Users can then install the release:**
+   ```bash
+   # Download the release
+   curl -L https://github.com/YOUR_USERNAME/triplanai-marketing/releases/download/v1.0.0/triplanai-marketing-linux-x64.tar.gz -o triplanai-marketing.tar.gz
+
+   # Extract and install
+   tar -xzf triplanai-marketing.tar.gz
+   cd triplanai-marketing
+   cp .env.example .env
+   nano .env  # Add your credentials
+   ./install.sh
+   ```
+
+**Note:** Remember to update `YOUR_USERNAME` in [quick-install.sh](quick-install.sh:11) with your actual GitHub username before creating releases.
 
 ## License
 

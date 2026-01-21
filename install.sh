@@ -68,22 +68,32 @@ done
 
 echo -e "${BLUE}Step 1/4: Checking dependencies...${NC}"
 
-# Check if node_modules exists
-if [ ! -d "$PROJECT_DIR/node_modules" ]; then
-    echo -e "${YELLOW}Warning: node_modules not found. Running npm install...${NC}"
-    cd "$PROJECT_DIR"
-    npm install
+# Check if this is a pre-built release (has dist/ and node_modules/)
+if [ -d "$PROJECT_DIR/dist" ] && [ -d "$PROJECT_DIR/node_modules" ]; then
+    echo -e "${GREEN}✓ Using pre-built release${NC}"
+    echo "  - dist/ directory found"
+    echo "  - node_modules/ found"
 else
-    echo -e "${GREEN}✓ Dependencies installed${NC}"
-fi
+    # Not a pre-built release, need to build from source
+    echo -e "${YELLOW}Building from source...${NC}"
 
-# Check if build directory exists, if not build it
-if [ ! -d "$PROJECT_DIR/dist" ]; then
-    echo -e "${YELLOW}Building TypeScript project...${NC}"
-    cd "$PROJECT_DIR"
-    npm run build
-else
-    echo -e "${GREEN}✓ Project built${NC}"
+    # Check if node_modules exists
+    if [ ! -d "$PROJECT_DIR/node_modules" ]; then
+        echo -e "${YELLOW}Installing dependencies...${NC}"
+        cd "$PROJECT_DIR"
+        npm install
+    else
+        echo -e "${GREEN}✓ Dependencies installed${NC}"
+    fi
+
+    # Check if build directory exists, if not build it
+    if [ ! -d "$PROJECT_DIR/dist" ]; then
+        echo -e "${YELLOW}Building TypeScript project...${NC}"
+        cd "$PROJECT_DIR"
+        npm run build
+    else
+        echo -e "${GREEN}✓ Project built${NC}"
+    fi
 fi
 
 echo ""
