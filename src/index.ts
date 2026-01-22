@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cron from 'node-cron';
 import { getEnv, validateEnv } from './lib/env';
+import { getAppConfig } from './lib/config';
 import { getDb, cleanupExpired, closeDb } from './lib/db';
 import { checkHealth as checkOllamaHealth } from './services/ollama';
 import { runScan, getTopCandidates } from './handlers/scan';
@@ -189,10 +190,11 @@ app.post('/webhook/delete', async (_req, res) => {
 // ============================================
 
 const env = getEnv();
+const config = getAppConfig();
 const PORT = env.PORT;
 
-// Schedule Reddit scan every 4 hours
-cron.schedule('0 */4 * * *', async () => {
+// Schedule Reddit scan
+cron.schedule(config.reddit.scanCron, async () => {
   console.log('[cron] Running scheduled Reddit scan');
   const { valid, missing } = validateEnv(env);
   if (!valid) {
@@ -207,8 +209,8 @@ cron.schedule('0 */4 * * *', async () => {
   }
 });
 
-// Schedule Twitter scan once daily at 8 AM (optimal engagement time)
-cron.schedule('0 8 * * *', async () => {
+// Schedule Twitter scan
+cron.schedule(config.twitter.scanCron, async () => {
   console.log('[cron] Running scheduled Twitter scan');
   const { valid, missing } = validateEnv(env);
   if (!valid) {
@@ -220,6 +222,22 @@ cron.schedule('0 8 * * *', async () => {
     await runScan(['twitter']);
   } catch (error) {
     console.error('[cron] Twitter scan failed:', error);
+  }
+});
+
+// Schedule Instagram scan
+cron.schedule(config.instagram.scanCron, async () => {
+  console.log('[cron] Running scheduled Instagram scan');
+  const { valid, missing } = validateEnv(env);
+  if (!valid) {
+    console.error(`[cron] Missing required env vars: ${missing.join(', ')}`);
+    return;
+  }
+
+  try {
+    await runScan(['instagram']);
+  } catch (error) {
+    console.error('[cron] Instagram scan failed:', error);
   }
 });
 
@@ -246,9 +264,14 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`[server] triplanai-marketing running on port ${PORT}`);
   console.log(`[server] Listening on 0.0.0.0:${PORT} (all network interfaces)`);
   console.log('[server] Cron schedules:');
-  console.log('[server]   - Reddit: 0 */4 * * * (every 4 hours)');
-  console.log('[server]   - Twitter: 0 8 * * * (daily at 8 AM)');
+  console.log(`[server]   - Reddit: ${config.reddit.scanCron}`);
+  console.log(`[server]   - Twitter: ${config.twitter.scanCron}`);
+  console.log(`[server]   - Instagram: ${config.instagram.scanCron}`);
   console.log('[server]   - Cleanup: 0 * * * * (hourly)');
+  console.log('[server] Configuration:');
+  console.log(`[server]   - Reddit: ${config.reddit.candidatesPerScan} candidates/scan, ${config.reddit.dailyPostLimit} posts/day, subreddits: ${config.reddit.subreddits.join(', ')}`);
+  console.log(`[server]   - Twitter: ${config.twitter.candidatesPerScan} candidates/scan, ${config.twitter.dailyPostLimit} posts/day`);
+  console.log(`[server]   - Instagram: ${config.instagram.candidatesPerScan} candidates/scan, ${config.instagram.dailyPostLimit} posts/day`);
 
   // Validate env on startup
   const { valid, missing } = validateEnv(env);

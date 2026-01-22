@@ -48,6 +48,21 @@ export interface Env {
 
   // Environment info
   ENVIRONMENT?: 'development' | 'preview' | 'production';
+
+  // Optional: Platform configuration overrides (see config.ts for defaults)
+  REDDIT_SCAN_CRON?: string;
+  REDDIT_CANDIDATES_PER_SCAN?: string;
+  REDDIT_DAILY_POST_LIMIT?: string;
+  REDDIT_SUBREDDITS?: string;
+  REDDIT_RANKING_LIMIT?: string;
+
+  TWITTER_SCAN_CRON?: string;
+  TWITTER_CANDIDATES_PER_SCAN?: string;
+  TWITTER_DAILY_POST_LIMIT?: string;
+
+  INSTAGRAM_SCAN_CRON?: string;
+  INSTAGRAM_CANDIDATES_PER_SCAN?: string;
+  INSTAGRAM_DAILY_POST_LIMIT?: string;
 }
 
 /**
@@ -87,6 +102,21 @@ export function loadEnv(): Env {
     CREATOMATE_API_KEY: process.env.CREATOMATE_API_KEY,
 
     ENVIRONMENT: (process.env.ENVIRONMENT as Env['ENVIRONMENT']) || 'development',
+
+    // Platform configuration overrides (optional)
+    REDDIT_SCAN_CRON: process.env.REDDIT_SCAN_CRON,
+    REDDIT_CANDIDATES_PER_SCAN: process.env.REDDIT_CANDIDATES_PER_SCAN,
+    REDDIT_DAILY_POST_LIMIT: process.env.REDDIT_DAILY_POST_LIMIT,
+    REDDIT_SUBREDDITS: process.env.REDDIT_SUBREDDITS,
+    REDDIT_RANKING_LIMIT: process.env.REDDIT_RANKING_LIMIT,
+
+    TWITTER_SCAN_CRON: process.env.TWITTER_SCAN_CRON,
+    TWITTER_CANDIDATES_PER_SCAN: process.env.TWITTER_CANDIDATES_PER_SCAN,
+    TWITTER_DAILY_POST_LIMIT: process.env.TWITTER_DAILY_POST_LIMIT,
+
+    INSTAGRAM_SCAN_CRON: process.env.INSTAGRAM_SCAN_CRON,
+    INSTAGRAM_CANDIDATES_PER_SCAN: process.env.INSTAGRAM_CANDIDATES_PER_SCAN,
+    INSTAGRAM_DAILY_POST_LIMIT: process.env.INSTAGRAM_DAILY_POST_LIMIT,
   };
 }
 

@@ -1,7 +1,10 @@
 import type { RankingWeights, SocialPlatform } from './types';
+import { getAppConfig } from './config';
 
 /**
- * Subreddits to scan for triathlon content
+ * Default subreddits to scan for triathlon content
+ * This is now configurable via config.ts and can be overridden with REDDIT_SUBREDDITS env var
+ * @deprecated Use getAppConfig().reddit.subreddits instead
  */
 export const SUBREDDITS = [
   'triathlon',
@@ -11,6 +14,13 @@ export const SUBREDDITS = [
   'cycling',
   'running',
 ] as const;
+
+/**
+ * Get the configured subreddits list
+ */
+export function getSubreddits(): string[] {
+  return getAppConfig().reddit.subreddits;
+}
 
 /**
  * Triathlon-related keywords for content matching

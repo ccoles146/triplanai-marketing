@@ -1,6 +1,6 @@
 import type { Env } from '../lib/env';
 import type { SocialPost } from '../lib/types';
-import { SUBREDDITS, EXCLUDE_PATTERNS } from '../lib/keywords';
+import { getSubreddits, EXCLUDE_PATTERNS } from '../lib/keywords';
 
 interface RedditOAuthResponse {
   access_token: string;
@@ -234,11 +234,14 @@ export async function scanReddit(env: Env): Promise<SocialPost[]> {
   // Check if we should use API or RSS
   const hasAPICredentials = env.REDDIT_CLIENT_ID && env.REDDIT_CLIENT_SECRET && env.REDDIT_USER_AGENT;
 
+  // Get configured subreddits
+  const subreddits = getSubreddits();
+
   if (!hasAPICredentials) {
     console.log('[reddit] No API credentials - using RSS feeds');
 
     // Scan via RSS (no authentication required)
-    for (const subreddit of SUBREDDITS) {
+    for (const subreddit of subreddits) {
       const rssPosts = await scanRedditViaRSS(subreddit);
       posts.push(...rssPosts);
     }
@@ -251,7 +254,7 @@ export async function scanReddit(env: Env): Promise<SocialPost[]> {
   const accessToken = await getAccessToken(env);
   const now = new Date();
 
-  for (const subreddit of SUBREDDITS) {
+  for (const subreddit of subreddits) {
     try {
       // Fetch new posts from subreddit
       const response = await fetch(

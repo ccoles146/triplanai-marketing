@@ -1,4 +1,5 @@
 import { getEnv } from '../lib/env';
+import { getAppConfig } from '../lib/config';
 import type { SocialPost, ScanResult, SocialPlatform, GeneratedReply } from '../lib/types';
 import { scanReddit } from '../scanners/reddit';
 import { scanTwitter } from '../scanners/twitter';
@@ -40,16 +41,19 @@ export async function runScan(platformFilter?: SocialPlatform[]): Promise<ScanRe
 
   // Generate replies for top candidates with platform-specific limits
   if (allCandidates.length > 0) {
+    const config = getAppConfig();
+
     // Sort all candidates by relevance
     const sortedCandidates = allCandidates.sort((a, b) => b.relevanceScore - a.relevanceScore);
 
-    // Apply platform-specific limits: Twitter 1-2/day, Reddit 3-5/day
-    const twitterCandidates = sortedCandidates.filter(c => c.platform === 'twitter').slice(0, 2);
-    const redditCandidates = sortedCandidates.filter(c => c.platform === 'reddit').slice(0, 3);
+    // Apply platform-specific limits from config
+    const twitterCandidates = sortedCandidates.filter(c => c.platform === 'twitter').slice(0, config.twitter.candidatesPerScan);
+    const redditCandidates = sortedCandidates.filter(c => c.platform === 'reddit').slice(0, config.reddit.candidatesPerScan);
+    const instagramCandidates = sortedCandidates.filter(c => c.platform === 'instagram').slice(0, config.instagram.candidatesPerScan);
 
-    const topCandidates = [...twitterCandidates, ...redditCandidates];
+    const topCandidates = [...twitterCandidates, ...redditCandidates, ...instagramCandidates];
 
-    console.log(`[scan] Generating replies for ${topCandidates.length} candidates (Twitter: ${twitterCandidates.length}, Reddit: ${redditCandidates.length})`);
+    console.log(`[scan] Generating replies for ${topCandidates.length} candidates (Twitter: ${twitterCandidates.length}, Reddit: ${redditCandidates.length}, Instagram: ${instagramCandidates.length})`);
 
     const replies = await generateReplies(topCandidates);
 
@@ -93,6 +97,7 @@ async function scanPlatform(
   platform: SocialPlatform
 ): Promise<{ result: ScanResult; candidates: SocialPost[] }> {
   const env = getEnv();
+  const config = getAppConfig();
   const result: ScanResult = {
     platform,
     postsScanned: 0,
@@ -112,8 +117,12 @@ async function scanPlatform(
       return { result, candidates };
     }
 
-    // Check daily post limit (max 3 per day per platform)
-    if (!canPostToday(platform, 3)) {
+    // Check daily post limit from config
+    const dailyLimit = platform === 'reddit' ? config.reddit.dailyPostLimit :
+                       platform === 'twitter' ? config.twitter.dailyPostLimit :
+                       config.instagram.dailyPostLimit;
+
+    if (!canPostToday(platform, dailyLimit)) {
       console.log(`[scan] Daily limit reached for ${platform}, skipping`);
       return { result, candidates };
     }
@@ -153,8 +162,9 @@ async function scanPlatform(
       return { result, candidates };
     }
 
-    // Rank posts
-    const rankedPosts = rankPosts(newPosts, 20);
+    // Rank posts using configurable limit
+    const rankingLimit = platform === 'reddit' ? config.reddit.rankingLimit : 20;
+    const rankedPosts = rankPosts(newPosts, rankingLimit);
     result.postsRanked = rankedPosts.length;
 
     // Filter for posts worth replying to
@@ -169,8 +179,12 @@ async function scanPlatform(
       markProcessed(post.id);
     }
 
-    // Return top candidates
-    candidates.push(...postsForReply.slice(0, 3));
+    // Return top candidates (limited by platform config)
+    const candidateLimit = platform === 'reddit' ? config.reddit.candidatesPerScan :
+                           platform === 'twitter' ? config.twitter.candidatesPerScan :
+                           config.instagram.candidatesPerScan;
+
+    candidates.push(...postsForReply.slice(0, candidateLimit));
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     result.errors.push(errorMsg);

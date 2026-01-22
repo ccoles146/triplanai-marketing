@@ -186,6 +186,14 @@ ${sanitizedTitle ? `<i>${truncate(sanitizedTitle, 100)}</i>\n` : ''}"${truncate(
       ],
       [
         {
+          text: '📋 Mark as Done',
+          callback_data: encodeCallbackData({
+            action: 'mark_done',
+            postId: reply.postId,
+            platform: reply.platform,
+          }),
+        },
+        {
           text: '❌ Skip',
           callback_data: encodeCallbackData({
             action: 'decline',
