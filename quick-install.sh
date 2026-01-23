@@ -143,27 +143,7 @@ echo -e "${BLUE}Step 4/4: Running installation...${NC}"
 # Change to the installation directory
 cd "$INSTALL_DIR"
 
-# Check if .env exists
-if [ ! -f ".env" ]; then
-    echo -e "${YELLOW}No .env file found. Please configure your environment:${NC}"
-    echo "1. Copy the example: cp .env.example .env"
-    echo "2. Edit with your credentials: nano .env"
-    echo ""
-    read -p "Do you want to create .env now? (y/N) " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        cp .env.example .env
-        echo -e "${GREEN}.env file created. Please edit it with your credentials.${NC}"
-        echo "Then run: cd $INSTALL_DIR && ./install.sh"
-        exit 0
-    else
-        echo "Please create .env file before running ./install.sh"
-        echo "cd $INSTALL_DIR && cp .env.example .env && nano .env && ./install.sh"
-        exit 1
-    fi
-fi
-
-# Run the installation script
+# Run the installation script (it will handle .env creation)
 if [ -f "./install.sh" ]; then
     if [ "$SKIP_WEBHOOK" = true ]; then
         ./install.sh --skip-webhook

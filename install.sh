@@ -14,7 +14,27 @@ NC='\033[0m' # No Color
 # Get the absolute path to the project directory
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVICE_NAME="triplanai-marketing"
-USER=$(whoami)
+
+# Handle user management for LXC environments
+if [ "$EUID" -eq 0 ]; then
+    # Running as root - create dedicated user for the service
+    SERVICE_USER="triplanai"
+
+    echo -e "${YELLOW}Running as root. Creating dedicated user for service...${NC}"
+
+    # Create user if it doesn't exist
+    if ! id "$SERVICE_USER" &>/dev/null; then
+        useradd --system --no-create-home --shell /bin/false "$SERVICE_USER" || true
+        echo -e "${GREEN}✓ Created user: $SERVICE_USER${NC}"
+    else
+        echo -e "${GREEN}✓ User already exists: $SERVICE_USER${NC}"
+    fi
+
+    USER="$SERVICE_USER"
+else
+    # Running as regular user
+    USER=$(whoami)
+fi
 
 echo -e "${BLUE}================================${NC}"
 echo -e "${GREEN}TriPlan-AI Marketing Bot${NC}"
@@ -25,19 +45,17 @@ echo "Project directory: $PROJECT_DIR"
 echo "Service will run as user: $USER"
 echo ""
 
-# Check if running as root
-if [ "$EUID" -eq 0 ]; then
-    echo -e "${RED}Error: Do not run this script as root${NC}"
-    echo "Run as the user who will execute the bot (current: $USER)"
-    exit 1
-fi
-
-# Check if .env file exists
+# Check if .env file exists, create from example if not
 if [ ! -f "$PROJECT_DIR/.env" ]; then
-    echo -e "${RED}Error: .env file not found${NC}"
-    echo "Please create a .env file with your configuration before installing"
-    echo "You can copy .env.example to .env and fill in your credentials"
-    exit 1
+    echo -e "${YELLOW}.env file not found. Creating from example...${NC}"
+    if [ -f "$PROJECT_DIR/.env.example" ]; then
+        cp "$PROJECT_DIR/.env.example" "$PROJECT_DIR/.env"
+        echo -e "${GREEN}✓ Created .env file${NC}"
+        echo -e "${YELLOW}⚠ Please edit .env with your credentials to enable full functionality${NC}"
+    else
+        echo -e "${RED}Error: .env.example not found${NC}"
+        exit 1
+    fi
 fi
 
 # Parse command line arguments
@@ -137,6 +155,12 @@ echo -e "${YELLOW}Setting up data directory...${NC}"
 mkdir -p "$PROJECT_DIR/data"
 chmod 755 "$PROJECT_DIR/data"
 
+# Set ownership if running as root
+if [ "$EUID" -eq 0 ]; then
+    chown -R "$USER:$USER" "$PROJECT_DIR"
+    echo -e "${GREEN}✓ Set ownership to $USER${NC}"
+fi
+
 # Reload systemd daemon
 echo -e "${YELLOW}Reloading systemd daemon...${NC}"
 sudo systemctl daemon-reload
@@ -153,13 +177,20 @@ sudo systemctl start $SERVICE_NAME.service
 sleep 2
 
 # Check service status
-if sudo systemctl is-active --quiet $SERVICE_NAME.service; then
+SYSTEMCTL_CMD="systemctl"
+[ "$EUID" -ne 0 ] && SYSTEMCTL_CMD="sudo systemctl"
+
+if $SYSTEMCTL_CMD is-active --quiet $SERVICE_NAME.service; then
     echo -e "${GREEN}✓ Service is running${NC}"
 else
     echo ""
-    echo -e "${RED}✗ Service failed to start. Check logs for details.${NC}"
-    echo "Run: sudo journalctl -u $SERVICE_NAME.service -n 50"
-    exit 1
+    echo -e "${YELLOW}⚠ Service may have failed to start. This is normal if .env is not fully configured.${NC}"
+    echo "Check logs: ${SYSTEMCTL_CMD/systemctl/journalctl} -u $SERVICE_NAME.service -n 50"
+    echo ""
+    echo -e "${YELLOW}Common reasons for startup failure:${NC}"
+    echo "  - Missing required credentials in .env (TELEGRAM_BOT_TOKEN, etc.)"
+    echo "  - Ollama not running or model not available"
+    echo "  - Port 3000 already in use"
 fi
 
 echo ""
@@ -196,20 +227,57 @@ echo -e "${BLUE}================================${NC}"
 echo -e "${GREEN}✓ Installation Complete!${NC}"
 echo -e "${BLUE}================================${NC}"
 echo ""
-echo "The bot server is now running with automatic scheduling:"
-echo "  - Reddit scans: Every 4 hours"
-echo "  - Twitter scans: Daily at 8 AM"
-echo "  - Cleanup: Hourly"
-echo "  - Webhook endpoint: Available at /webhook/telegram"
-echo ""
+
+# Check if .env has placeholder values
+ENV_INCOMPLETE=false
+if grep -q "your_telegram_bot_token_here" "$PROJECT_DIR/.env" 2>/dev/null || \
+   grep -q "your_telegram_chat_id_here" "$PROJECT_DIR/.env" 2>/dev/null; then
+    ENV_INCOMPLETE=true
+fi
+
+if [ "$ENV_INCOMPLETE" = true ]; then
+    echo -e "${YELLOW}⚠ IMPORTANT: Configuration Required${NC}"
+    echo ""
+    echo "Your .env file needs to be configured with real credentials:"
+    echo ""
+    echo -e "${BLUE}Required (minimum):${NC}"
+    echo "  - TELEGRAM_BOT_TOKEN     (for approval workflow)"
+    echo "  - TELEGRAM_CHAT_ID       (your Telegram chat ID)"
+    echo "  - OLLAMA_HOST            (default: http://localhost:11434)"
+    echo ""
+    echo -e "${BLUE}Optional (per platform):${NC}"
+    echo "  - Reddit: REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_USERNAME, REDDIT_PASSWORD"
+    echo "  - Twitter: TWITTER_BEARER_TOKEN, TWITTER_API_KEY, etc."
+    echo ""
+    echo -e "${YELLOW}Edit your configuration:${NC}"
+    echo "  nano $PROJECT_DIR/.env"
+    echo ""
+    echo -e "${YELLOW}Then restart the service:${NC}"
+    echo "  ${SYSTEMCTL_CMD} restart $SERVICE_NAME.service"
+    echo ""
+else
+    echo "The bot server is now running with automatic scheduling:"
+    echo "  - Reddit scans: Every 4 hours"
+    echo "  - Twitter scans: Daily at 8 AM"
+    echo "  - Cleanup: Hourly"
+    echo "  - Webhook endpoint: Available at /webhook/telegram"
+    echo ""
+fi
+
 echo -e "${YELLOW}Useful commands:${NC}"
-echo "  Check service status:      sudo systemctl status $SERVICE_NAME.service"
-echo "  View live logs:            sudo journalctl -u $SERVICE_NAME.service -f"
-echo "  Restart service:           sudo systemctl restart $SERVICE_NAME.service"
-echo "  Stop service:              sudo systemctl stop $SERVICE_NAME.service"
-echo "  Disable service:           sudo systemctl disable $SERVICE_NAME.service"
+SUDO_PREFIX=""
+[ "$EUID" -ne 0 ] && SUDO_PREFIX="sudo "
+echo "  Check service status:      ${SUDO_PREFIX}systemctl status $SERVICE_NAME.service"
+echo "  View live logs:            ${SUDO_PREFIX}journalctl -u $SERVICE_NAME.service -f"
+echo "  Restart service:           ${SUDO_PREFIX}systemctl restart $SERVICE_NAME.service"
+echo "  Stop service:              ${SUDO_PREFIX}systemctl stop $SERVICE_NAME.service"
+echo "  Disable service:           ${SUDO_PREFIX}systemctl disable $SERVICE_NAME.service"
+echo ""
+echo -e "${YELLOW}Configuration:${NC}"
+echo "  Edit credentials:          nano $PROJECT_DIR/.env"
+echo "  After editing, restart:    ${SUDO_PREFIX}systemctl restart $SERVICE_NAME.service"
 echo ""
 echo -e "${YELLOW}Manual webhook setup:${NC}"
-echo "  Production:                ./scripts/setup-webhook.sh production"
-echo "  Local (with tunnel):       ./scripts/setup-webhook.sh local"
+echo "  Production:                cd $PROJECT_DIR && ./scripts/setup-webhook.sh production"
+echo "  Local (with tunnel):       cd $PROJECT_DIR && ./scripts/setup-webhook.sh local"
 echo ""

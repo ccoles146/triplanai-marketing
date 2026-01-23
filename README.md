@@ -58,8 +58,11 @@ Choose one of the following installation methods:
 No build tools required! Download and install the latest pre-built release:
 
 ```bash
-# Download and run the quick install script
+# One-line installation (downloads and installs latest release)
 curl -fsSL https://raw.githubusercontent.com/ccoles146/triplanai-marketing/master/quick-install.sh | bash
+
+# To update later, simply run:
+# curl -fsSL https://raw.githubusercontent.com/ccoles146/triplanai-marketing/master/update.sh | bash
 
 # Or download manually
 VERSION=v1.0.0  # Replace with desired version or use "latest"
@@ -78,6 +81,7 @@ nano .env  # Add your credentials
 - Faster installation
 - Pre-compiled native modules
 - Consistent builds
+- Easy updates with `./update.sh`
 
 ### Option B: Build from Source
 
@@ -305,6 +309,46 @@ sudo systemctl disable triplanai-marketing.timer
 1. **Via systemd**: `sudo systemctl start triplanai-marketing.service` - Runs a one-time scan
 2. **Via API** (if server is running): `curl -X POST http://localhost:3000/test/scan`
 3. **Direct execution**: `npm run start` in the project directory
+
+### Updating
+
+To update to the latest version:
+
+```bash
+./update.sh
+```
+
+The update script will:
+1. **Backup** your `.env` file and `data/` directory
+2. **Stop** the running service
+3. **Download** the latest version (for release installations) or **pull** latest changes (for git installations)
+4. **Install** dependencies and rebuild (if needed)
+5. **Restore** your data
+6. **Restart** the service
+
+**Update Options:**
+
+```bash
+# Standard update to latest version
+./update.sh
+
+# Update to specific version (release installations only)
+./update.sh --version v1.2.0
+
+# Skip backup (not recommended)
+./update.sh --skip-backup
+
+# Update without restarting service
+./update.sh --skip-restart
+```
+
+The script automatically detects whether you installed from a pre-built release or from source (git) and uses the appropriate update method.
+
+**One-Line Update (for release installations):**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ccoles146/triplanai-marketing/master/update.sh | bash
+```
 
 ### Uninstallation
 
