@@ -49,8 +49,8 @@ describe('Reddit Scanner', () => {
         createMockFetchResponse(mockRedditResponses.oauthToken)
       );
 
-      // Mock subreddit requests (6 subreddits)
-      for (let i = 0; i < 6; i++) {
+      // Mock subreddit requests (4 subreddits: triathlon, Ironman, triathlontraining, cycling)
+      for (let i = 0; i < 4; i++) {
         mockFetch.mockResolvedValueOnce(
           createMockFetchResponse(mockRedditResponses.subredditListing)
         );
@@ -60,7 +60,7 @@ describe('Reddit Scanner', () => {
 
       // Should only include valid posts (not spam, not deleted)
       // Each subreddit returns 3 posts but 2 are filtered (spam + deleted)
-      expect(posts.length).toBe(6); // 1 valid post × 6 subreddits
+      expect(posts.length).toBe(4); // 1 valid post × 4 subreddits
 
       // Verify post structure
       const post = posts[0];
@@ -112,8 +112,8 @@ describe('Reddit Scanner', () => {
         },
       };
 
-      // Return spam for all 6 subreddits
-      for (let i = 0; i < 6; i++) {
+      // Return spam for all 4 subreddits
+      for (let i = 0; i < 4; i++) {
         mockFetch.mockResolvedValueOnce(
           createMockFetchResponse(spamOnlyListing)
         );
@@ -149,7 +149,7 @@ describe('Reddit Scanner', () => {
         },
       };
 
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < 4; i++) {
         mockFetch.mockResolvedValueOnce(
           createMockFetchResponse(deletedUserListing)
         );
@@ -165,7 +165,7 @@ describe('Reddit Scanner', () => {
         createMockFetchResponse(mockRedditResponses.oauthToken)
       );
 
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < 4; i++) {
         mockFetch.mockResolvedValueOnce(
           createMockFetchResponse(mockRedditResponses.subredditListing)
         );
@@ -181,6 +181,10 @@ describe('Reddit Scanner', () => {
     });
 
     it('should handle OAuth failure gracefully', async () => {
+      // Clear any cached token first
+      clearTokenCache();
+
+      // Mock OAuth failure
       mockFetch.mockResolvedValueOnce(
         createMockFetchResponse({ error: 'invalid_client' }, false, 401)
       );
@@ -198,7 +202,7 @@ describe('Reddit Scanner', () => {
         createMockFetchResponse({ error: 'Not found' }, false, 404)
       );
 
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 3; i++) {
         mockFetch.mockResolvedValueOnce(
           createMockFetchResponse(mockRedditResponses.subredditListing)
         );
@@ -206,8 +210,8 @@ describe('Reddit Scanner', () => {
 
       const posts = await scanReddit(mockEnv);
 
-      // Should have posts from 5 subreddits (1 failed)
-      expect(posts.length).toBe(5);
+      // Should have posts from 3 subreddits (1 failed out of 4 total)
+      expect(posts.length).toBe(3);
     });
 
     it('should correctly construct post URL', async () => {
@@ -215,7 +219,7 @@ describe('Reddit Scanner', () => {
         createMockFetchResponse(mockRedditResponses.oauthToken)
       );
 
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < 4; i++) {
         mockFetch.mockResolvedValueOnce(
           createMockFetchResponse(mockRedditResponses.subredditListing)
         );
@@ -259,6 +263,7 @@ describe('Reddit Scanner', () => {
     });
 
     it('should handle auth failure', async () => {
+      // Mock OAuth token failure
       mockFetch.mockResolvedValueOnce(
         createMockFetchResponse({ error: 'invalid_grant' }, false, 401)
       );
@@ -266,14 +271,16 @@ describe('Reddit Scanner', () => {
       const result = await postRedditReply(mockEnv, 'abc123', 'Test reply');
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Auth failed');
+      expect(result.error).toBe('Auth failed: {"error":"invalid_grant"}');
     });
 
     it('should handle comment posting failure', async () => {
+      // Mock successful OAuth
       mockFetch.mockResolvedValueOnce(
         createMockFetchResponse(mockRedditResponses.oauthToken)
       );
 
+      // Mock failed comment post
       mockFetch.mockResolvedValueOnce(
         createMockFetchResponse({ error: 'RATELIMIT' }, false, 429)
       );
@@ -281,7 +288,7 @@ describe('Reddit Scanner', () => {
       const result = await postRedditReply(mockEnv, 'abc123', 'Test reply');
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Comment failed');
+      expect(result.error).toBe('Comment failed: {"error":"RATELIMIT"}');
     });
 
     it('should use correct thing_id prefix for posts', async () => {
@@ -303,10 +310,12 @@ describe('Reddit Scanner', () => {
 
   describe('postToTriplanaiSubreddit', () => {
     it('should submit a self post successfully', async () => {
+      // Mock successful OAuth
       mockFetch.mockResolvedValueOnce(
         createMockFetchResponse(mockRedditResponses.oauthToken)
       );
 
+      // Mock successful submit
       mockFetch.mockResolvedValueOnce(
         createMockFetchResponse({
           json: {
@@ -324,7 +333,10 @@ describe('Reddit Scanner', () => {
       );
 
       expect(result.success).toBe(true);
-      expect(result.url).toContain('triplanai');
+      expect(result.url).toBeDefined();
+      if (result.url) {
+        expect(result.url).toContain('triplanai');
+      }
 
       // Verify submit request
       const submitCall = mockFetch.mock.calls[1];
@@ -348,10 +360,12 @@ describe('Reddit Scanner', () => {
     });
 
     it('should handle submit failure', async () => {
+      // Mock successful OAuth
       mockFetch.mockResolvedValueOnce(
         createMockFetchResponse(mockRedditResponses.oauthToken)
       );
 
+      // Mock failed submit
       mockFetch.mockResolvedValueOnce(
         createMockFetchResponse({ error: 'SUBREDDIT_NOEXIST' }, false, 403)
       );
@@ -363,7 +377,7 @@ describe('Reddit Scanner', () => {
       );
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Submit failed');
+      expect(result.error).toBe('Submit failed: {"error":"SUBREDDIT_NOEXIST"}');
     });
   });
 });

@@ -160,12 +160,13 @@ describe('Telegram Service', () => {
 
       expect(keyboard).toHaveLength(2); // Two rows
       expect(keyboard[0]).toHaveLength(2); // First row: Reply Only + Reply + Cross-post
-      expect(keyboard[1]).toHaveLength(1); // Second row: Skip
+      expect(keyboard[1]).toHaveLength(2); // Second row: Mark as Done + Skip
 
       // Verify button texts
       expect(keyboard[0][0].text).toContain('Reply Only');
       expect(keyboard[0][1].text).toContain('Cross-post');
-      expect(keyboard[1][0].text).toContain('Skip');
+      expect(keyboard[1][0].text).toContain('Mark as Done');
+      expect(keyboard[1][1].text).toContain('Skip');
     });
 
     it('should handle API failure', async () => {

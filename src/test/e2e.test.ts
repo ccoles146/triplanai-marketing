@@ -33,6 +33,7 @@ const mockEnv = {
   TELEGRAM_BOT_TOKEN: 'test-telegram-token',
   TELEGRAM_CHAT_ID: 'test-chat-id',
   TELEGRAM_WEBHOOK_SECRET: 'test-secret',
+  WEBHOOK_URL: 'https://example.com/webhook',
   INSTAGRAM_ACCESS_TOKEN: '',
   INSTAGRAM_BUSINESS_ACCOUNT_ID: '',
   FACEBOOK_PAGE_ID: '',
@@ -136,8 +137,8 @@ describe('E2E Tests: Full Workflow with Discard on Approval', () => {
         createMockFetchResponse(mockRedditResponses.oauthToken)
       );
 
-      // Mock Reddit subreddit responses (6 subreddits)
-      for (let i = 0; i < 6; i++) {
+      // Mock Reddit subreddit responses (4 subreddits: triathlon, Ironman, triathlontraining, cycling)
+      for (let i = 0; i < 4; i++) {
         mockFetch.mockResolvedValueOnce(
           createMockFetchResponse({
             data: {
@@ -423,7 +424,7 @@ describe('E2E Tests: Full Workflow with Discard on Approval', () => {
         },
       };
 
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < 4; i++) {
         mockFetch.mockResolvedValueOnce(
           createMockFetchResponse(singlePostListing)
         );
@@ -530,7 +531,7 @@ describe('E2E Tests: Full Workflow with Discard on Approval', () => {
         },
       };
 
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < 4; i++) {
         mockFetch.mockResolvedValueOnce(createMockFetchResponse(listing));
       }
 
