@@ -1,6 +1,6 @@
 {
   "name": "triplanai-marketing",
-  "version": "2.0.10",
+  "version": "2.1.0",
   "description": "Social media marketing automation for TriPlanAI (self-hosted)",
   "type": "module",
   "scripts": {
